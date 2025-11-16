@@ -1,0 +1,15 @@
+Language: Cpp
+BasedOnStyle: LLVM
+
+BreakBeforeBraces: Linux
+
+IndentWidth: 4
+ContinuationIndentWidth: 4
+ColumnLimit: 100
+
+IndentCaseLabels: false
+AlignOperands: true
+AlignConsecutiveMacros: true
+
+AllowShortIfStatementsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
