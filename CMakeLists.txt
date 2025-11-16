@@ -85,7 +85,11 @@ set_target_properties(cipr
 )
 
 # SIMD and optimization flags 
-target_compile_options(cipr PRIVATE -O3 -march=native -mavx2 -mfma -flto)
+if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
+        target_compile_options(cipr PRIVATE -O3 -march=native -mavx2 -mfma)
+else()
+        target_compile_options(cipr PRIVATE -O3 -march=native -mavx2 -mfma -flto)
+endif()
 
 # libjpeg-turbo must build first
 add_dependencies(cipr libjpeg-turbo)
