@@ -14,7 +14,7 @@ High-performance image processing library written in C.
 * Format conversion (RGB ↔ grayscale)
 * Custom internal thread-pool (Pthreads)
 
-### Requirments
+### Requirements
 * x86-64 CPU with **AVX2** and **FMA** support
 * CMake version 3.15 or newer
 * GCC or Clang C compiler
@@ -33,7 +33,8 @@ cmake --build build
 
 ### Examples
 
-Several example programs are included in the `examples/` directory (e.g., `eg_gaussian.c`, `eg_combined.c`, etc.). A sample image (from https://unsplash.com/photos/aerial-view-of-city-during-day-time-kCABKZBt4Gk) is provided for quick testing. 
+Several example programs are included in the `examples/` directory (e.g., `eg_gaussian.c`, `eg_combined.c`, etc.).
+A sample image (from https://unsplash.com/photos/aerial-view-of-city-during-day-time-kCABKZBt4Gk) is provided for quick testing. 
 
 To run an example program:
 ```
@@ -43,6 +44,16 @@ cd build
 
 ### Benchmarks
 
-Several benchmarking programs are included in the `benchmarks/` directory to compare performance between different versions of the Gaussian and box blur filters.
+Several benchmarking programs are included in the `benchmarks/` directory to compare performance between
+different versions of the Gaussian and box blur filters.
+
+Example Gaussian blur performance result (1280x720 RGB8 image, σ = 2.5):
+
+| Function Version      | Minimum Time (ms) |
+| :-------------------- | ----------------: |
+| Naive                 |   510.36          |     
+| Separable             |    49.93          |     
+| Separable (AVX2)      |     6.04          |     
+| Final (Multithreaded) | ****1.56****      |     
 
 See `benchmarks/README.md` for more information and results.
