@@ -13,9 +13,10 @@ was documented for comparison. The benchmarks were executed on a Ryzen 9 6900HS
 GCC toolchain with compile flags: `-O3 -march=native -mavx2 -mfma -flto`. libcipr
 was configured to use 8 threads for all multithreaded benchmark results.
 
-Note: “Final (Multithreaded)” represents the optimized version used internally by libcipr.  
-The other variants (naive, separable, AVX2, running-sum, etc.) are legacy versions provided
-for comparison and can be found in the `src/filter/legacy/` directory.
+**Note**: *Final (Multithreaded)* represents the optimized version used internally by
+libcipr. The other versions (naive, separable, AVX2, running-sum, etc.) are legacy
+variants provided for comparison; they are implemented in the `src/filter/legacy/`
+directory.
 
 ### Gaussian Blur (σ = 2.5)
 
