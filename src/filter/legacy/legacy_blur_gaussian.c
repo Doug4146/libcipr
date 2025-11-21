@@ -1,7 +1,7 @@
 /**
  * @file legacy_blur_gaussian.c
  *
- * Implements the legacy gaussian blur versions declared in LIBCIPR/cipr.h.
+ * Implements the legacy gaussian blur versions declared in LIBCIPR/libcipr.h.
  */
 
 #include "LIBCIPR/libcipr.h"

@@ -1,7 +1,7 @@
 /**
  * @file legacy_blur_box.c
  *
- * Implements the legacy box blur versions declared in LIBCIPR/cipr.h.
+ * Implements the legacy box blur versions declared in LIBCIPR/libcipr.h.
  */
 
 #include "LIBCIPR/libcipr.h"
