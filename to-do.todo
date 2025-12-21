@@ -1,0 +1,9 @@
+Optimizations To-do:
+    ☐ Implement u16 fixed-point SIMD solution for Gaussian blur passes
+    ☐ Try using loop tiling for vertical convolution passes, tile=64 is four m128i's and fits in image (because padded)
+    ☐ Look into barriers for the threadpool for multi-stage algorithms like seperable box, Gaussian, etc
+    ☐ Look into lock-free implementations of threadpools, try to reduce overhead of synchronization
+
+Organization To-do:
+    ☐ Implement single function for legacy box and Gaussian blur in libcipr.h, use function table internally
+    ☐ Create module in benchmarks/ for the benchmarking function, text output formatting, and etc
