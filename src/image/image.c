@@ -1,13 +1,13 @@
 /**
- * @file task_queue.c
+ * @file image.c
  *
  * Implements the image structure and planar view structure handling operations
  * declared in image/image.h and LIBCIPR/libcipr.h.
  */
 
 #include "image/image.h"
-#include "threading/thread_pool.h"
 #include "LIBCIPR/libcipr.h"
+#include "threading/thread_pool.h"
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -43,7 +43,7 @@ void cipr_image_destroy(CIPR_Image **image)
     if (!cipr__thread_pool_is_init()) {
         return;
     }
-    
+
     // Validate argument
     if ((image == NULL) || (*image == NULL)) {
         return;
@@ -56,10 +56,8 @@ void cipr_image_destroy(CIPR_Image **image)
     }
 
     // Free and nullify struct
-    if (*image != NULL) {
-        free(*image);
-        *image = NULL;
-    }
+    free(*image);
+    *image = NULL;
 }
 
 int cipr__image_validate(CIPR_Image *image)
