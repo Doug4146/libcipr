@@ -6,4 +6,8 @@ Optimizations To-do:
 
 Organization To-do:
     ☐ Implement single function for legacy box and Gaussian blur in libcipr.h, use function table internally
-    ☐ Create module in benchmarks/ for the benchmarking function, text output formatting, and etc
+    ☐ Make the benchmark programs use command-line arguments for benchmarking parameters
+    ✔ Create module in benchmarks/ for the benchmarking function, text output formatting, and etc @done (1/8/2026, 12:17:42 AM)
+
+Bugs To-do:
+    ✔ Fix the cipr_image_destroy function (make it like ParticleSystem proj) @done (1/7/2026, 10:56:30 AM)
