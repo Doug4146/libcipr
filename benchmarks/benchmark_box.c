@@ -3,8 +3,9 @@
 #include <stdint.h>
 #include <stdio.h>
 
-static int benchmark_function(int (*blur_function)(CIPR_Image *, int), double *times_array,
-                              double *min_time_ms);
+static int benchmark_legacy_function(CIPR_BLUR_BOX_IMPL implementation, double *times_array,
+                                     double *min_time_ms);
+static int benchmark_library_function(double *times_array, double *min_time_ms);
 
 // Control the number of iterations done in benchmarking
 #define MAX_ITERATIONS 5
@@ -17,7 +18,7 @@ static int benchmark_function(int (*blur_function)(CIPR_Image *, int), double *t
 #define INPUT_PATH (const char *)"../benchmarks/input_images/1280x720.jpeg"
 
 // Control the size of the box blur
-#define SIZE 15
+#define BLUR_SIZE 15
 
 // Control the number of threads used for the final multithreaded function
 #define NUM_THREADS 8
@@ -36,7 +37,7 @@ int main(void)
     // --------------------------------------------------------------------
 
     double min_time_naive_ms = 0;
-    if (benchmark_function(cipr_legacy_blur_box_naive, times_array, &min_time_naive_ms) != 0) {
+    if (benchmark_legacy_function(BLUR_BOX_NAIVE, times_array, &min_time_naive_ms) != 0) {
         cipr_thread_pool_shutdown();
         return -1;
     }
@@ -46,7 +47,7 @@ int main(void)
     // --------------------------------------------------------------------
 
     double min_time_separable_ms = 0;
-    if (benchmark_function(cipr_legacy_blur_box_separable, times_array, &min_time_separable_ms) !=
+    if (benchmark_legacy_function(BLUR_BOX_SEPARABLE, times_array, &min_time_separable_ms) !=
         0) {
         cipr_thread_pool_shutdown();
         return -1;
@@ -57,18 +58,18 @@ int main(void)
     // --------------------------------------------------------------------
 
     double min_time_running_sum_ms = 0;
-    if (benchmark_function(cipr_legacy_blur_box_running_sum, times_array,
+    if (benchmark_legacy_function(BLUR_BOX_RUNNING_SUM, times_array,
                            &min_time_running_sum_ms) != 0) {
         cipr_thread_pool_shutdown();
         return -1;
     }
 
     // --------------------------------------------------------------------
-    // Benchmarking for the legacy running-sum transpose function
+    // Benchmarking for the legacy running-sum with transpose function
     // --------------------------------------------------------------------
 
     double min_time_running_sum_transpose_ms = 0;
-    if (benchmark_function(cipr_legacy_blur_box_running_sum_transpose, times_array,
+    if (benchmark_legacy_function(BLUR_BOX_RUNNING_SUM_TRANSPOSE, times_array,
                            &min_time_running_sum_transpose_ms) != 0) {
         cipr_thread_pool_shutdown();
         return -1;
@@ -79,7 +80,7 @@ int main(void)
     // --------------------------------------------------------------------
 
     double min_time_separable_avx2_ms = 0;
-    if (benchmark_function(cipr_legacy_blur_box_separable_avx2, times_array,
+    if (benchmark_legacy_function(BLUR_BOX_SEPARABLE_AVX2, times_array,
                            &min_time_separable_avx2_ms) != 0) {
         cipr_thread_pool_shutdown();
         return -1;
@@ -91,7 +92,7 @@ int main(void)
 
     // Note the final multithreaded function utilizes the separable AVX2 algorithm
     double min_time_final_mt_ms = 0;
-    if (benchmark_function(cipr_filter_blur_box, times_array, &min_time_final_mt_ms) != 0) {
+    if (benchmark_library_function(times_array, &min_time_final_mt_ms) != 0) {
         cipr_thread_pool_shutdown();
         return -1;
     }
@@ -121,29 +122,59 @@ int main(void)
     return 0;
 }
 
-static int benchmark_function(int (*blur_function)(CIPR_Image *, int), double *times_array,
-                              double *min_time_ms)
+static int benchmark_legacy_function(CIPR_BLUR_BOX_IMPL implementation, double *times_array,
+                                     double *min_time_ms)
 {
     for (int i = 0; i < MAX_ITERATIONS; i++) {
 
         CIPR_Image *image = cipr_image_create();
         if (image == NULL) {
-            cipr_thread_pool_shutdown();
             return -1;
         }
 
         if (cipr_io_read_jpeg(image, INPUT_PATH) != 0) {
             cipr_image_destroy(&image);
-            cipr_thread_pool_shutdown();
             return -1;
         }
 
         uint64_t start_time = get_time_nanoseconds();
 
-        // Apply the specified Box blur function
-        if (blur_function(image, SIZE) != 0) {
+        // Apply the specified box blur function
+        if (cipr_legacy_filter_blur_box(image, BLUR_SIZE, implementation) != 0) {
             cipr_image_destroy(&image);
-            cipr_thread_pool_shutdown();
+            return -1;
+        }
+
+        uint64_t end_time = get_time_nanoseconds();
+        times_array[i] = (double)(end_time - start_time) / 1000000.0f; // milliseconds
+
+        cipr_image_destroy(&image);
+    }
+
+    *min_time_ms = array_find_minimum(times_array, MAX_ITERATIONS);
+
+    return 0;
+}
+
+static int benchmark_library_function(double *times_array, double *min_time_ms)
+{
+    for (int i = 0; i < MAX_ITERATIONS; i++) {
+
+        CIPR_Image *image = cipr_image_create();
+        if (image == NULL) {
+            return -1;
+        }
+
+        if (cipr_io_read_jpeg(image, INPUT_PATH) != 0) {
+            cipr_image_destroy(&image);
+            return -1;
+        }
+
+        uint64_t start_time = get_time_nanoseconds();
+
+        // Apply the final (multithreaded) box blur function
+        if (cipr_filter_blur_box(image, BLUR_SIZE) != 0) {
+            cipr_image_destroy(&image);
             return -1;
         }
 

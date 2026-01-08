@@ -1,7 +1,7 @@
 /**
  * @file legacy_blur_box.c
  *
- * Implements the legacy box blur versions declared in LIBCIPR/libcipr.h.
+ * Implements the legacy box blur functions.
  */
 
 #include "LIBCIPR/libcipr.h"
@@ -12,8 +12,12 @@
 #include <math.h>
 #include <stdlib.h>
 
+// ----------------------------------------------------------------------------
+// Naive box blur implementation
+// ----------------------------------------------------------------------------
+
 // Naive box blur (scalar, single-threaded): 2D convolution => O(k^2), k = size
-int cipr_legacy_blur_box_naive(CIPR_Image *image, int size)
+static int blur_box_naive(CIPR_Image *image, int size)
 {
     // Check if the global thread pool is initialized
     if (!cipr__thread_pool_is_init()) {
@@ -81,8 +85,12 @@ int cipr_legacy_blur_box_naive(CIPR_Image *image, int size)
     return 0;
 }
 
+// ----------------------------------------------------------------------------
+// Separable box blur implementation
+// ----------------------------------------------------------------------------
+
 // Separable box blur (scalar, single-threaded): 1D convolution => O(k), k=size
-int cipr_legacy_blur_box_separable(CIPR_Image *image, int size)
+static int blur_box_separable(CIPR_Image *image, int size)
 {
     // Check if the global thread pool is initialized
     if (!cipr__thread_pool_is_init()) {
@@ -164,8 +172,12 @@ int cipr_legacy_blur_box_separable(CIPR_Image *image, int size)
     return 0;
 }
 
+// ----------------------------------------------------------------------------
+// Running-sum box blur implementation
+// ----------------------------------------------------------------------------
+
 // Running-sum box blur (scalar, single-threaded): 1D running-sum => O(1)
-int cipr_legacy_blur_box_running_sum(CIPR_Image *image, int size)
+static int blur_box_running_sum(CIPR_Image *image, int size)
 {
     // Check if the global thread pool is initialized
     if (!cipr__thread_pool_is_init()) {
@@ -268,7 +280,7 @@ int cipr_legacy_blur_box_running_sum(CIPR_Image *image, int size)
 }
 
 // ----------------------------------------------------------------------------
-// Running-sum box blur with transpose
+// Running-sum with transpose box blur implementation
 // ----------------------------------------------------------------------------
 
 // Tiled transpose function
@@ -339,7 +351,7 @@ static void running_sum_horizontal_pass(cipr_u8 *dst, cipr_u8 *src, cipr_i32 siz
 }
 
 // Running-sum box blur with transpose (scalar, single-threaded)
-int cipr_legacy_blur_box_running_sum_transpose(CIPR_Image *image, int size)
+static int blur_box_running_sum_transpose(CIPR_Image *image, int size)
 {
     // Check if the global thread pool is initialized
     if (!cipr__thread_pool_is_init()) {
@@ -572,7 +584,7 @@ static void separable_vertical_avx2(cipr_u8 *dst, cipr_u8 *src, cipr_i32 kernel_
 }
 
 // AVX2-optimized separable box blur (single-threaded)
-int cipr_legacy_blur_box_separable_avx2(CIPR_Image *image, int size)
+static int blur_box_separable_avx2(CIPR_Image *image, int size)
 {
     // Check if the global thread pool is initialized
     if (!cipr__thread_pool_is_init()) {
@@ -621,6 +633,24 @@ int cipr_legacy_blur_box_separable_avx2(CIPR_Image *image, int size)
 
     // Free the temporary buffer
     cipr__aligned_free(temp_buffer);
+
+    return 0;
+}
+
+// ----------------------------------------------------------------------------
+// Public function for legacy box blur implementations
+// ----------------------------------------------------------------------------
+
+// Function table for the different gaussian blur implementations
+typedef int (*blur_box_func)(CIPR_Image *, int);
+blur_box_func blur_box_function_table[] = {blur_box_naive, blur_box_separable, blur_box_running_sum,
+                                           blur_box_running_sum_transpose, blur_box_separable_avx2};
+
+int cipr_legacy_filter_blur_box(CIPR_Image *image, int size, CIPR_BLUR_BOX_IMPL implementation)
+{
+    // Call the specified Gaussian implentation from the function table
+    blur_box_func function = blur_box_function_table[implementation];
+    function(image, size);
 
     return 0;
 }

@@ -294,7 +294,7 @@ static int gaussian_separable(CIPR_Image *image, float standard_deviation)
 // ----------------------------------------------------------------------------
 
 // AVX2-optimized separable horizontal Gaussian blur pass
-static void separable_horizontal_optimized(cipr_u8 *dst, cipr_u8 *src, cipr_f32 *kernel,
+static void separable_horizontal_avx2(cipr_u8 *dst, cipr_u8 *src, cipr_f32 *kernel,
                                            cipr_i32 kernel_size, cipr_i32 h, cipr_i32 w,
                                            cipr_i32 stride)
 {
@@ -406,7 +406,7 @@ static void separable_horizontal_optimized(cipr_u8 *dst, cipr_u8 *src, cipr_f32 
 }
 
 // AVX2-optimized separable vertical Gaussian box blur pass
-static void separable_vertical_optimized(cipr_u8 *dst, cipr_u8 *src, cipr_f32 *kernel,
+static void separable_vertical_avx2(cipr_u8 *dst, cipr_u8 *src, cipr_f32 *kernel,
                                          cipr_i32 kernel_size, cipr_i32 h, cipr_i32 w,
                                          cipr_i32 stride)
 {
@@ -583,10 +583,10 @@ static int gaussian_separable_avx2(CIPR_Image *image, float standard_deviation)
         cipr_u8 *temp = (cipr_u8 *)temp_planar_view.planes[n];
 
         // Pass 1: horizontal Gaussian blur (temp <- orig)
-        separable_horizontal_optimized(temp, orig, kernel, kernel_size, h, w, stride);
+        separable_horizontal_avx2(temp, orig, kernel, kernel_size, h, w, stride);
 
         // Pass 2: vertical Gaussian blur (orig <- temp)
-        separable_vertical_optimized(orig, temp, kernel, kernel_size, h, w, stride);
+        separable_vertical_avx2(orig, temp, kernel, kernel_size, h, w, stride);
     }
 
     // Free the kernel and the temporary buffer

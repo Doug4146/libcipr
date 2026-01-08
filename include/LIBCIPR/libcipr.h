@@ -234,15 +234,28 @@ int cipr_filter_sobel_operator(CIPR_Image *image);
  * reference. They do not make use of the global thread pool.
  */
 
-int cipr_legacy_blur_gaussian_naive(CIPR_Image *image, float standard_deviation);
-int cipr_legacy_blur_gaussian_separable(CIPR_Image *image, float standard_deviation);
-int cipr_legacy_blur_gaussian_separable_avx2(CIPR_Image *image, float standard_deviation);
+// Enumeration of legacy Gaussian blur implementations.
+typedef enum CIPR_GAUSSIAN_IMPL {
+    GAUSSIAN_NAIVE = 0,
+    GAUSSIAN_SEPARABLE,
+    GAUSSIAN_SEPARABLE_AVX2,
+} CIPR_GAUSSIAN_IMPL;
 
-int cipr_legacy_blur_box_naive(CIPR_Image *image, int size);
-int cipr_legacy_blur_box_separable(CIPR_Image *image, int size);
-int cipr_legacy_blur_box_running_sum(CIPR_Image *image, int size);
-int cipr_legacy_blur_box_running_sum_transpose(CIPR_Image *image, int size);
-int cipr_legacy_blur_box_separable_avx2(CIPR_Image *image, int size);
+// Performs a Gaussian blur filter using a selected legacy implementation
+int cipr_legacy_filter_blur_gaussian(CIPR_Image *image, float standard_deviation,
+                                     CIPR_GAUSSIAN_IMPL implementation);
+
+// Enumeration of legacy box blur implementations.
+typedef enum CIPR_BLUR_BOX_IMPL {
+    BLUR_BOX_NAIVE = 0,
+    BLUR_BOX_SEPARABLE,
+    BLUR_BOX_RUNNING_SUM,
+    BLUR_BOX_RUNNING_SUM_TRANSPOSE,
+    BLUR_BOX_SEPARABLE_AVX2,
+} CIPR_BLUR_BOX_IMPL;
+
+// Performs a box blur filter using a selected legacy implementation
+int cipr_legacy_filter_blur_box(CIPR_Image *image, int size, CIPR_BLUR_BOX_IMPL implementation);
 
 #ifdef __cplusplus
 }
