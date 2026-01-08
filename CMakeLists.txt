@@ -20,7 +20,7 @@ endif()
 # Get libspng with FetchContent
 FetchContent_Declare(
         libspng 
-        URL "https://github.com/randy408/libspng/archive/refs/tags/v0.7.4.tar.gz" #v0.7.4
+        URL "https://github.com/randy408/libspng/archive/refs/tags/v0.7.4.tar.gz" # v0.7.4
 )
 FetchContent_MakeAvailable(libspng)
 
@@ -114,7 +114,7 @@ target_link_libraries(cipr
                 ${MATH_LIBRARY}
 )
 
-# # Build the examples
+# Build the examples
 if(BUILD_EXAMPLES)
         add_executable(eg_gaussian ${CMAKE_CURRENT_SOURCE_DIR}/examples/eg_gaussian.c)
         target_link_libraries(eg_gaussian cipr)
@@ -134,9 +134,12 @@ endif()
 
 # Build the benchmarks
 if(BUILD_BENCHMARKS)
+        add_library(benchmark_common STATIC ${CMAKE_CURRENT_SOURCE_DIR}/benchmarks/common.c)
+        target_include_directories(benchmark_common PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/benchmarks)
+
         add_executable(benchmark_gaussian ${CMAKE_CURRENT_SOURCE_DIR}/benchmarks/benchmark_gaussian.c)
-        target_link_libraries(benchmark_gaussian cipr)
+        target_link_libraries(benchmark_gaussian cipr benchmark_common)
 
         add_executable(benchmark_box ${CMAKE_CURRENT_SOURCE_DIR}/benchmarks/benchmark_box.c)
-        target_link_libraries(benchmark_box cipr)
+        target_link_libraries(benchmark_box cipr benchmark_common)
 endif()

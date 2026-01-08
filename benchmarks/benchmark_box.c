@@ -1,18 +1,10 @@
-#include <stdio.h>
-#include <stdlib.h>
-
-#ifdef _WIN32
-#include <windows.h>
-#else // POSIX
-#include <time.h>
-#endif
-
+#include "common.h"
 #include <LIBCIPR/libcipr.h>
+#include <stdint.h>
+#include <stdio.h>
 
-static double find_minimum(double *array, int array_length);
 static int benchmark_function(int (*blur_function)(CIPR_Image *, int), double *times_array,
                               double *min_time_ms);
-static void print_char_line(char c, int n);
 
 // Control the number of iterations done in benchmarking
 #define MAX_ITERATIONS 5
@@ -129,29 +121,10 @@ int main(void)
     return 0;
 }
 
-static void print_char_line(char c, int n)
-{
-    for (int i = 0; i < n; i++) {
-        printf("%c", c);
-    }
-    printf("\n");
-}
-
-static double find_minimum(double *array, int array_length)
-{
-    double minimum = array[0];
-    for (int i = 1; i < array_length; i++) {
-        if (array[i] < minimum) {
-            minimum = array[i];
-        }
-    }
-    return minimum;
-}
-
 static int benchmark_function(int (*blur_function)(CIPR_Image *, int), double *times_array,
                               double *min_time_ms)
 {
-    for (int n = 0; n < MAX_ITERATIONS; n++) {
+    for (int i = 0; i < MAX_ITERATIONS; i++) {
 
         CIPR_Image *image = cipr_image_create();
         if (image == NULL) {
@@ -165,15 +138,7 @@ static int benchmark_function(int (*blur_function)(CIPR_Image *, int), double *t
             return -1;
         }
 
-#ifdef _WIN32
-        LARGE_INTEGER StartingTime, EndingTime, ElapsedMicroseconds;
-        LARGE_INTEGER Frequency;
-        QueryPerformanceFrequency(&Frequency);
-        QueryPerformanceCounter(&StartingTime);
-#else // POSIX
-        struct timespec StartingTime, EndingTime;
-        clock_gettime(CLOCK_MONOTONIC, &StartingTime);
-#endif
+        uint64_t start_time = get_time_nanoseconds();
 
         // Apply the specified Box blur function
         if (blur_function(image, SIZE) != 0) {
@@ -182,22 +147,13 @@ static int benchmark_function(int (*blur_function)(CIPR_Image *, int), double *t
             return -1;
         }
 
-#ifdef _WIN32
-        QueryPerformanceCounter(&EndingTime);
-        ElapsedMicroseconds.QuadPart = EndingTime.QuadPart - StartingTime.QuadPart;
-        ElapsedMicroseconds.QuadPart *= 1000000;
-        ElapsedMicroseconds.QuadPart /= Frequency.QuadPart;
-        times_array[n] = (double)ElapsedMicroseconds.QuadPart / 1000;
-#else // POSIX
-        clock_gettime(CLOCK_MONOTONIC, &EndingTime);
-        times_array[n] = ((EndingTime.tv_sec - StartingTime.tv_sec) * 1000.0) +
-                         ((EndingTime.tv_nsec - StartingTime.tv_nsec) / 1e6);
-#endif
+        uint64_t end_time = get_time_nanoseconds();
+        times_array[i] = (double)(end_time - start_time) / 1000000.0f; // milliseconds
 
         cipr_image_destroy(&image);
     }
 
-    *min_time_ms = find_minimum(times_array, MAX_ITERATIONS);
+    *min_time_ms = array_find_minimum(times_array, MAX_ITERATIONS);
 
     return 0;
 }
