@@ -1,7 +1,7 @@
 /**
  * @file legacy_blur_gaussian.c
  *
- * Implements the legacy gaussian blur versions declared in LIBCIPR/libcipr.h.
+ * Implements the legacy gaussian blur functions.
  */
 
 #include "LIBCIPR/libcipr.h"
@@ -30,6 +30,10 @@ static cipr_u32 gaussian_kernel_size(cipr_f32 standard_deviation)
 
     return kernel_size;
 }
+
+// ----------------------------------------------------------------------------
+// Naive Gaussian blur implementation
+// ----------------------------------------------------------------------------
 
 /*
  * Initializes a 2D Gaussian kernel from a given kernel size and standard
@@ -65,7 +69,7 @@ static void gaussian_kernel_2D_init(cipr_f32 *kernel, cipr_i32 kernel_size,
 }
 
 // Naive Gaussian blur (scalar, single-threaded): 2D convolution => O(k^2), k = size
-int cipr_legacy_blur_gaussian_naive(CIPR_Image *image, float standard_deviation)
+static int gaussian_naive(CIPR_Image *image, float standard_deviation)
 {
     // Check if the global thread pool is initialized
     if (!cipr__thread_pool_is_init()) {
@@ -149,6 +153,10 @@ int cipr_legacy_blur_gaussian_naive(CIPR_Image *image, float standard_deviation)
     return 0;
 }
 
+// ----------------------------------------------------------------------------
+// Separable Gaussian blur implementation
+// ----------------------------------------------------------------------------
+
 /**
  * Initializes a 1D separable Gaussian kernel from a given kernel size and
  * standard deviation and applies normalization. The separable gaussian kernel
@@ -183,7 +191,7 @@ static void gaussian_kernel_1D_init(cipr_f32 *kernel, cipr_i32 kernel_size,
 }
 
 // Separable Gaussian blur (scalar, single-threaded): 1D convolution => O(k), k=size
-int cipr_legacy_blur_gaussian_separable(CIPR_Image *image, float standard_deviation)
+static int gaussian_separable(CIPR_Image *image, float standard_deviation)
 {
     // Check if the global thread pool is initialized
     if (!cipr__thread_pool_is_init()) {
@@ -286,7 +294,7 @@ int cipr_legacy_blur_gaussian_separable(CIPR_Image *image, float standard_deviat
 // ----------------------------------------------------------------------------
 
 // AVX2-optimized separable horizontal Gaussian blur pass
-static void separable_optimized_horizontal(cipr_u8 *dst, cipr_u8 *src, cipr_f32 *kernel,
+static void separable_horizontal_optimized(cipr_u8 *dst, cipr_u8 *src, cipr_f32 *kernel,
                                            cipr_i32 kernel_size, cipr_i32 h, cipr_i32 w,
                                            cipr_i32 stride)
 {
@@ -398,7 +406,7 @@ static void separable_optimized_horizontal(cipr_u8 *dst, cipr_u8 *src, cipr_f32 
 }
 
 // AVX2-optimized separable vertical Gaussian box blur pass
-static void separable_optimized_vertical(cipr_u8 *dst, cipr_u8 *src, cipr_f32 *kernel,
+static void separable_vertical_optimized(cipr_u8 *dst, cipr_u8 *src, cipr_f32 *kernel,
                                          cipr_i32 kernel_size, cipr_i32 h, cipr_i32 w,
                                          cipr_i32 stride)
 {
@@ -523,7 +531,7 @@ static void separable_optimized_vertical(cipr_u8 *dst, cipr_u8 *src, cipr_f32 *k
 }
 
 // AVX2-Optimized separable Gaussian blur (single-threaded)
-int cipr_legacy_blur_gaussian_separable_avx2(CIPR_Image *image, float standard_deviation)
+static int gaussian_separable_avx2(CIPR_Image *image, float standard_deviation)
 {
     // Check if the global thread pool is initialized
     if (!cipr__thread_pool_is_init()) {
@@ -575,15 +583,34 @@ int cipr_legacy_blur_gaussian_separable_avx2(CIPR_Image *image, float standard_d
         cipr_u8 *temp = (cipr_u8 *)temp_planar_view.planes[n];
 
         // Pass 1: horizontal Gaussian blur (temp <- orig)
-        separable_optimized_horizontal(temp, orig, kernel, kernel_size, h, w, stride);
+        separable_horizontal_optimized(temp, orig, kernel, kernel_size, h, w, stride);
 
         // Pass 2: vertical Gaussian blur (orig <- temp)
-        separable_optimized_vertical(orig, temp, kernel, kernel_size, h, w, stride);
+        separable_vertical_optimized(orig, temp, kernel, kernel_size, h, w, stride);
     }
 
     // Free the kernel and the temporary buffer
     free(kernel);
     cipr__aligned_free(temp_buffer);
+
+    return 0;
+}
+
+// ----------------------------------------------------------------------------
+// Public function for legacy Gaussian blur implementations
+// ----------------------------------------------------------------------------
+
+// Function table for the different gaussian blur implementations
+typedef int (*gaussian_func)(CIPR_Image *, float);
+gaussian_func gaussian_function_table[] = {gaussian_naive, gaussian_separable,
+                                           gaussian_separable_avx2};
+
+int cipr_legacy_filter_blur_gaussian(CIPR_Image *image, float standard_deviation,
+                                     CIPR_GAUSSIAN_IMPL implementation)
+{
+    // Call the specified Gaussian implentation from the function table
+    gaussian_func function = gaussian_function_table[implementation];
+    function(image, standard_deviation);
 
     return 0;
 }

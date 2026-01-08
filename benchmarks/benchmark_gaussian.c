@@ -3,8 +3,9 @@
 #include <stdint.h>
 #include <stdio.h>
 
-static int benchmark_function(int (*blur_function)(CIPR_Image *, float), double *times_array,
-                              double *min_time_ms);
+static int benchmark_legacy_function(CIPR_GAUSSIAN_IMPL implementation, double *times_array,
+                                     double *min_time_ms);
+static int benchmark_library_function(double *times_array, double *min_time_ms);
 
 // Control the number of iterations done in benchmarking
 #define MAX_ITERATIONS 5
@@ -36,7 +37,7 @@ int main(void)
     // --------------------------------------------------------------------
 
     double min_time_naive_ms = 0;
-    if (benchmark_function(cipr_legacy_blur_gaussian_naive, times_array, &min_time_naive_ms) != 0) {
+    if (benchmark_legacy_function(GAUSSIAN_NAIVE, times_array, &min_time_naive_ms) != 0) {
         cipr_thread_pool_shutdown();
         return -1;
     }
@@ -46,8 +47,7 @@ int main(void)
     // --------------------------------------------------------------------
 
     double min_time_separable_ms = 0;
-    if (benchmark_function(cipr_legacy_blur_gaussian_separable, times_array,
-                           &min_time_separable_ms) != 0) {
+    if (benchmark_legacy_function(GAUSSIAN_SEPARABLE, times_array, &min_time_separable_ms) != 0) {
         cipr_thread_pool_shutdown();
         return -1;
     }
@@ -57,8 +57,8 @@ int main(void)
     // --------------------------------------------------------------------
 
     double min_time_separable_avx2_ms = 0;
-    if (benchmark_function(cipr_legacy_blur_gaussian_separable_avx2, times_array,
-                           &min_time_separable_avx2_ms) != 0) {
+    if (benchmark_legacy_function(GAUSSIAN_SEPARABLE_AVX2, times_array,
+                                  &min_time_separable_avx2_ms) != 0) {
         cipr_thread_pool_shutdown();
         return -1;
     }
@@ -69,7 +69,7 @@ int main(void)
 
     // Note the final multithreaded function utilizes the separable AVX2 algorithm
     double min_time_final_mt_ms = 0;
-    if (benchmark_function(cipr_filter_blur_gaussian, times_array, &min_time_final_mt_ms) != 0) {
+    if (benchmark_library_function(times_array, &min_time_final_mt_ms) != 0) {
         cipr_thread_pool_shutdown();
         return -1;
     }
@@ -97,29 +97,59 @@ int main(void)
     return 0;
 }
 
-static int benchmark_function(int (*blur_function)(CIPR_Image *, float), double *times_array,
-                              double *min_time_ms)
+static int benchmark_legacy_function(CIPR_GAUSSIAN_IMPL implementation, double *times_array,
+                                     double *min_time_ms)
 {
     for (int i = 0; i < MAX_ITERATIONS; i++) {
 
         CIPR_Image *image = cipr_image_create();
         if (image == NULL) {
-            cipr_thread_pool_shutdown();
             return -1;
         }
 
         if (cipr_io_read_jpeg(image, INPUT_PATH) != 0) {
             cipr_image_destroy(&image);
-            cipr_thread_pool_shutdown();
             return -1;
         }
 
         uint64_t start_time = get_time_nanoseconds();
 
         // Apply the specified Gaussian blur function
-        if (blur_function(image, STANDARD_DEVIATION) != 0) {
+        if (cipr_legacy_filter_blur_gaussian(image, STANDARD_DEVIATION, implementation) != 0) {
             cipr_image_destroy(&image);
-            cipr_thread_pool_shutdown();
+            return -1;
+        }
+
+        uint64_t end_time = get_time_nanoseconds();
+        times_array[i] = (double)(end_time - start_time) / 1000000.0f; // milliseconds
+
+        cipr_image_destroy(&image);
+    }
+
+    *min_time_ms = array_find_minimum(times_array, MAX_ITERATIONS);
+
+    return 0;
+}
+
+static int benchmark_library_function(double *times_array, double *min_time_ms)
+{
+    for (int i = 0; i < MAX_ITERATIONS; i++) {
+
+        CIPR_Image *image = cipr_image_create();
+        if (image == NULL) {
+            return -1;
+        }
+
+        if (cipr_io_read_jpeg(image, INPUT_PATH) != 0) {
+            cipr_image_destroy(&image);
+            return -1;
+        }
+
+        uint64_t start_time = get_time_nanoseconds();
+
+        // Apply the final (multithreaded) Gaussian blur function
+        if (cipr_filter_blur_gaussian(image, STANDARD_DEVIATION) != 0) {
+            cipr_image_destroy(&image);
             return -1;
         }
 
