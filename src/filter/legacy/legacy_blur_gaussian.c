@@ -295,8 +295,7 @@ static int gaussian_separable(CIPR_Image *image, float standard_deviation)
 
 // AVX2-optimized separable horizontal Gaussian blur pass
 static void separable_horizontal_avx2(cipr_u8 *dst, cipr_u8 *src, cipr_f32 *kernel,
-                                           cipr_i32 kernel_size, cipr_i32 h, cipr_i32 w,
-                                           cipr_i32 stride)
+                                      cipr_i32 kernel_size, cipr_i32 h, cipr_i32 w, cipr_i32 stride)
 {
     // Compute gaussian kernel radius
     cipr_i32 radius = kernel_size / 2;
@@ -407,8 +406,7 @@ static void separable_horizontal_avx2(cipr_u8 *dst, cipr_u8 *src, cipr_f32 *kern
 
 // AVX2-optimized separable vertical Gaussian box blur pass
 static void separable_vertical_avx2(cipr_u8 *dst, cipr_u8 *src, cipr_f32 *kernel,
-                                         cipr_i32 kernel_size, cipr_i32 h, cipr_i32 w,
-                                         cipr_i32 stride)
+                                    cipr_i32 kernel_size, cipr_i32 h, cipr_i32 w, cipr_i32 stride)
 {
     // Compute gaussian kernel radius
     cipr_i32 radius = kernel_size / 2;

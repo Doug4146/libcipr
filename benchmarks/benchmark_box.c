@@ -47,8 +47,7 @@ int main(void)
     // --------------------------------------------------------------------
 
     double min_time_separable_ms = 0;
-    if (benchmark_legacy_function(BLUR_BOX_SEPARABLE, times_array, &min_time_separable_ms) !=
-        0) {
+    if (benchmark_legacy_function(BLUR_BOX_SEPARABLE, times_array, &min_time_separable_ms) != 0) {
         cipr_thread_pool_shutdown();
         return -1;
     }
@@ -58,8 +57,8 @@ int main(void)
     // --------------------------------------------------------------------
 
     double min_time_running_sum_ms = 0;
-    if (benchmark_legacy_function(BLUR_BOX_RUNNING_SUM, times_array,
-                           &min_time_running_sum_ms) != 0) {
+    if (benchmark_legacy_function(BLUR_BOX_RUNNING_SUM, times_array, &min_time_running_sum_ms) !=
+        0) {
         cipr_thread_pool_shutdown();
         return -1;
     }
@@ -70,7 +69,7 @@ int main(void)
 
     double min_time_running_sum_transpose_ms = 0;
     if (benchmark_legacy_function(BLUR_BOX_RUNNING_SUM_TRANSPOSE, times_array,
-                           &min_time_running_sum_transpose_ms) != 0) {
+                                  &min_time_running_sum_transpose_ms) != 0) {
         cipr_thread_pool_shutdown();
         return -1;
     }
@@ -81,7 +80,7 @@ int main(void)
 
     double min_time_separable_avx2_ms = 0;
     if (benchmark_legacy_function(BLUR_BOX_SEPARABLE_AVX2, times_array,
-                           &min_time_separable_avx2_ms) != 0) {
+                                  &min_time_separable_avx2_ms) != 0) {
         cipr_thread_pool_shutdown();
         return -1;
     }
