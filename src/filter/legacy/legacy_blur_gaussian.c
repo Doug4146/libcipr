@@ -595,13 +595,292 @@ static int gaussian_separable_avx2(CIPR_Image *image, float standard_deviation)
 }
 
 // ----------------------------------------------------------------------------
+// Separable Gaussian blur with AVX2 vector intrinsics using fixed-point Q15 kernel
+// ----------------------------------------------------------------------------
+
+// Initializes a Gaussian kernel with 15-bit fixed point integers (stored as u16) instead of f32
+// Uses Q15 to utilize AVX2 intrinsic: _mm256_mulhrs_, which accelerates Q15 computation
+static void gaussian_kernel_1D_init_fixed_point(cipr_u16 *kernel, cipr_i32 kernel_size,
+                                    cipr_f32 standard_deviation)
+{
+    // Precompute values
+    cipr_f32 coefficient = 1 / (sqrt(2 * CIPR__PI) * standard_deviation);
+    cipr_f32 denominator = 2 * standard_deviation * standard_deviation;
+    cipr_i32 radius = kernel_size / 2;
+
+    cipr_f32 kernel_sum = 0;
+    cipr_i32 kernel_index = 0;
+
+    cipr_f32 kernel_f32[kernel_size];
+
+    // Fill the kernel
+    for (cipr_i32 x = -radius; x <= radius; x++) {
+
+        cipr_f32 value = coefficient * expf(-(x * x) / denominator);
+        kernel_f32[kernel_index] = value;
+
+        kernel_sum += value;
+        kernel_index++;
+    }
+
+    // Normalize the kernel
+    for (cipr_i32 i = 0; i < kernel_size; i++) {
+        kernel_f32[i] /= kernel_sum;
+    }
+
+    // Convert to Q15 fixed point
+    for (cipr_i32 i = 0; i < kernel_size; i++) {
+        // Maybe add some clamping logic
+        kernel[i] = roundf(kernel_f32[i] * pow(2, 15));
+    }
+}
+
+// AVX2-optimized separable horizontal Gaussian blur with Q15 fixed-point pass
+static void separable_optimized_horizontal_fixed_point(cipr_u8 *dst, cipr_u8 *src, cipr_u16 *kernel,
+                                           cipr_i32 kernel_size, cipr_i32 h, cipr_i32 w,
+                                           cipr_i32 stride)
+{
+    // Compute gaussian kernel radius
+    cipr_i32 radius = kernel_size / 2;
+
+    for (cipr_i32 y = 0; y < h; y++) {
+
+        // Pointers to current row in dst and src buffers
+        cipr_u8 *restrict dst_row = &dst[y * stride];
+        const cipr_u8 *restrict src_row = &src[y * stride];
+
+        cipr_i32 x = 0;
+        // ---- Left boundary handling (non-vectorized) ----
+        for (; x < radius; x++) {
+
+            cipr_i32 result = 0;
+
+            cipr_i32 kernel_index = radius - x;
+            for (cipr_i32 xx = 0; xx <= x + radius; xx++) {
+                result += ((src_row[xx] * kernel[kernel_index]) + (1 << 14)) >> 15;
+                kernel_index++;
+            }
+            dst_row[x] = (cipr_u8)result;
+        }
+        // ---- Main loop (vectorized) ----
+        for (; x < (w - radius) - 16; x += 16) {
+
+            __m256i result_i16 = _mm256_setzero_si256();
+
+            cipr_i32 kernel_index = 0;
+
+            for (cipr_i32 xx = x - radius; xx <= x + radius; xx++) {
+
+                __m128i src_u8 = _mm_loadu_si128((const __m128i *)&src_row[xx]);
+                __m256i src_i16 = _mm256_cvtepu8_epi16(src_u8);
+
+                __m256i kernel_i16 = _mm256_set1_epi16(kernel[kernel_index]);
+
+                // handles the (1 << 14) addition and >> 15 automatically
+                result_i16 =
+                    _mm256_adds_epi16(result_i16, _mm256_mulhrs_epi16(src_i16, kernel_i16));
+                
+                kernel_index++;
+            }
+
+            __m128i result_lo_i16 = _mm256_extracti128_si256(result_i16, 0);
+            __m128i result_hi_i16 = _mm256_extracti128_si256(result_i16, 1);
+
+            __m128i result_u8 = _mm_packus_epi16(result_lo_i16, result_hi_i16);
+
+            _mm_storeu_si128((__m128i *)&dst_row[x], result_u8);
+        }
+        // ---- Main loop (non-vectorized, handling leftovers) ----
+        for (; x < w - radius; x++) {
+
+            cipr_i16 result = 0;
+
+            cipr_i32 kernel_index = 0;
+            for (cipr_i32 xx = x - radius; xx <= x + radius; xx++) {
+                result += ((src_row[xx] * kernel[kernel_index]) + (1 << 14)) >> 15;
+                kernel_index++;
+            }
+            dst_row[x] = (cipr_u8)result;
+        }
+        for (; x < w; x++) {
+
+            cipr_i32 result = 0;
+
+            cipr_i32 kernel_index = 0;
+            for (cipr_i32 xx = x - radius; xx < w; xx++) {
+                result += ((src_row[xx] * kernel[kernel_index]) + (1 << 14)) >> 15;
+                kernel_index++;
+            }
+            dst_row[x] = (cipr_u8)result;
+        }
+    }
+}
+
+// AVX2-optimized separable vertical Gaussian blur with Q15 fixed-point pass
+static void separable_optimized_vertical_fixed_point(cipr_u8 *dst, cipr_u8 *src, cipr_u16 *kernel,
+                                         cipr_i32 kernel_size, cipr_i32 h, cipr_i32 w,
+                                         cipr_i32 stride)
+{
+    // Compute gaussian kernel radius
+    cipr_i32 radius = kernel_size / 2;
+
+    cipr_i32 y = 0;
+    // ---- Upper boundary handling (non-vectorized) ----
+    for (; y < radius; y++) {
+
+        // Pointer to current row in dst buffer
+        cipr_u8 *restrict dst_row = &dst[y * stride];
+
+        for (cipr_i32 x = 0; x < w; x++) {
+
+            cipr_i32 result = 0;
+
+            cipr_i32 kernel_index = radius - y;
+            for (cipr_i32 yy = 0; yy <= y + radius; yy++) {
+                result += ((src[yy * stride + x] * kernel[kernel_index]) + (1 << 14)) >> 15;
+                kernel_index++;
+            }
+            dst_row[x] = (cipr_u8)result;
+        }
+    }
+    // ---- Main loop ----
+    for (; y < h - radius; y++) {
+
+        // Pointer to current row in dst buffer
+        cipr_u8 *restrict dst_row = &dst[y * stride];
+
+        cipr_i32 x = 0;
+        
+        // ---- Main loop (vectorized) ----
+        for (; x < w - 16; x += 16) {
+
+            __m256i result_i16 = _mm256_setzero_si256();
+
+            cipr_i32 kernel_index = 0;
+
+            for (cipr_i32 yy = y - radius; yy <= y + radius; yy++) {
+
+                __m128i src_u8 = _mm_loadu_si128((const __m128i *)&src[yy * stride + x]);
+                __m256i src_i16 = _mm256_cvtepu8_epi16(src_u8);
+
+                __m256i kernel_i16 = _mm256_set1_epi16(kernel[kernel_index]);
+
+                // handles the (1 << 14) addition and >> 15 automatically
+                result_i16 =
+                    _mm256_adds_epi16(result_i16, _mm256_mulhrs_epi16(src_i16, kernel_i16));
+                
+                kernel_index++;
+            }
+
+            __m128i result_lo_i16 = _mm256_extracti128_si256(result_i16, 0);
+            __m128i result_hi_i16 = _mm256_extracti128_si256(result_i16, 1);
+
+            __m128i result_u8 = _mm_packus_epi16(result_lo_i16, result_hi_i16);
+
+            _mm_storeu_si128((__m128i *)&dst_row[x], result_u8);
+        }
+        // ---- Main loop (non-vectorized, handling leftovers) ----
+        for (; x < w; x++) {
+
+            cipr_i32 result = 0;
+
+            cipr_i32 kernel_index = 0;
+            for (cipr_i32 yy = y - radius; yy <= y + radius; yy++) {
+                result += ((src[yy * stride + x] * kernel[kernel_index]) + (1 << 14)) >> 15;
+                kernel_index++;
+            }
+            dst_row[x] = (cipr_u8)result;
+        }
+    }
+    // ---- Lower boundary handling (non-vectorized) ----
+    for (; y < h; y++) {
+
+        // Pointer to current row in dst buffer
+        cipr_u8 *restrict dst_row = &dst[y * stride];
+
+        for (cipr_i32 x = 0; x < w; x++) {
+
+            cipr_i32 result = 0;
+
+            cipr_i32 kernel_index = 0;
+            for (cipr_i32 yy = y - radius; yy < h; yy++) {
+                result += ((src[yy * stride + x] * kernel[kernel_index]) + (1 << 14)) >> 15;
+                kernel_index++;
+            }
+            dst_row[x] = (cipr_u8)result;
+        }
+    }
+}
+
+// AVX2-Optimized separable Gaussian blur with Q15 fixed-point kernel (single-threaded)
+int gaussian_separable_avx2_fixed_point(CIPR_Image *image, float standard_deviation)
+{
+    // Validate parameters
+    if ((cipr__image_validate(image) != 0) || (standard_deviation <= 0)) {
+        return -1;
+    }
+
+    // Shortened variable names
+    cipr_i32 h = image->height;
+    cipr_i32 w = image->width;
+    cipr_i32 stride = (cipr_u32)image->stride;
+
+    // Initialize a planar view structure for the original image buffer
+    struct CIPR__PlanarView orig_planar_view;
+    cipr__planar_view_init(&orig_planar_view, image->buffer, sizeof(cipr_u8), image->pixfmt, h,
+                           stride);
+
+    // Allocate memory for a temporary buffer
+    cipr_u8 *temp_buffer =
+        cipr__aligned_alloc(image->buffer_length * sizeof(cipr_u8), CIPR_CACHELINE);
+    if (temp_buffer == NULL) {
+        return -1;
+    }
+
+    // Initialize a planar view structure for the temporary buffer
+    struct CIPR__PlanarView temp_planar_view;
+    cipr__planar_view_init(&temp_planar_view, temp_buffer, sizeof(cipr_u8), image->pixfmt, h,
+                           stride);
+
+    // Allocate memory for a one-dimensional Gaussian kernel
+    cipr_usize kernel_size = gaussian_kernel_size(standard_deviation);
+    cipr_u16 *kernel = malloc(kernel_size * sizeof(cipr_u16));
+    if (kernel == NULL) {
+        cipr__aligned_free(temp_buffer);
+        return -1;
+    }
+
+    // Initialize the Gaussian kernel, Q15 fixed point
+    gaussian_kernel_1D_init_fixed_point(kernel, kernel_size, standard_deviation);
+
+    // Apply algorithm for each planar region of image buffer
+    for (cipr_i32 n = 0; n < (cipr_i32)orig_planar_view.num_planes; n++) {
+
+        cipr_u8 *orig = (cipr_u8 *)orig_planar_view.planes[n];
+        cipr_u8 *temp = (cipr_u8 *)temp_planar_view.planes[n];
+
+        // Pass 1: horizontal Gaussian blur (temp <- orig)
+        separable_optimized_horizontal_fixed_point(temp, orig, kernel, kernel_size, h, w, stride);
+
+        // Pass 2: vertical Gaussian blur (orig <- temp)
+        separable_optimized_vertical_fixed_point(orig, temp, kernel, kernel_size, h, w, stride);
+    }
+
+    // Free the kernel and the temporary buffer
+    free(kernel);
+    cipr__aligned_free(temp_buffer);
+
+    return 0;
+}
+
+// ----------------------------------------------------------------------------
 // Public function for legacy Gaussian blur implementations
 // ----------------------------------------------------------------------------
 
 // Function table for the different gaussian blur implementations
 typedef int (*gaussian_func)(CIPR_Image *, float);
 gaussian_func gaussian_function_table[] = {gaussian_naive, gaussian_separable,
-                                           gaussian_separable_avx2};
+                                           gaussian_separable_avx2, gaussian_separable_avx2_fixed_point};
 
 int cipr_legacy_filter_blur_gaussian(CIPR_Image *image, float standard_deviation,
                                      CIPR_GAUSSIAN_IMPL implementation)

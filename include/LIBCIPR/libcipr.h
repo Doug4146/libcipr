@@ -9,7 +9,7 @@
  *
  * This header should be included to access the functionality of libcipr.
  *
- * @date 2025-01-08
+ * @date 2025-01-14
  */
 
 #ifndef LIBCIPR_LIBCIPR_H_
@@ -239,6 +239,7 @@ typedef enum CIPR_GAUSSIAN_IMPL {
     GAUSSIAN_NAIVE = 0,
     GAUSSIAN_SEPARABLE,
     GAUSSIAN_SEPARABLE_AVX2,
+    GAUSSIAN_SEPARABLE_AVX2_FIXED_POINT,
 } CIPR_GAUSSIAN_IMPL;
 
 // Performs a Gaussian blur filter using a selected legacy implementation

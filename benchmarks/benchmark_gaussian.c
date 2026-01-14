@@ -64,6 +64,17 @@ int main(void)
     }
 
     // --------------------------------------------------------------------
+    // Benchmarking for the legacy separable AVX2 fixed-point function
+    // --------------------------------------------------------------------
+
+    double min_time_separable_avx2_fixed_point_ms = 0;
+    if (benchmark_legacy_function(GAUSSIAN_SEPARABLE_AVX2_FIXED_POINT, times_array,
+                                  &min_time_separable_avx2_fixed_point_ms) != 0) {
+        cipr_thread_pool_shutdown();
+        return -1;
+    }
+
+    // --------------------------------------------------------------------
     // Benchmarking for the final multithreaded (main library) function
     // --------------------------------------------------------------------
 
@@ -79,17 +90,18 @@ int main(void)
     // --------------------------------------------------------------------
 
     printf("\n\n");
-    print_char_line('-', 51);
-    printf("  Benchmarking Gaussian Blur  |  Iterations = %d   \n", MAX_ITERATIONS);
-    print_char_line('-', 51);
+    print_char_line('-', 56);
+    printf("  Benchmarking Gaussian Blur       |  Iterations = %d   \n", MAX_ITERATIONS);
+    print_char_line('-', 56);
     printf("\n");
 
-    printf("     %-23s  |  %17s \n", "Function", "Minimum Time (ms)");
-    print_char_line('-', 51);
-    printf("     %-23s  |  %9.3f \n", "Naive", min_time_naive_ms);
-    printf("     %-23s  |  %9.3f \n", "Separable", min_time_separable_ms);
-    printf("     %-23s  |  %9.3f \n", "Separable (AVX2)", min_time_separable_avx2_ms);
-    printf("     %-23s  |  %9.3f \n", "Final (Multithreaded)", min_time_final_mt_ms);
+    printf("     %-29s  |  %17s \n", "Function", "Minimum Time (ms)");
+    print_char_line('-', 56);
+    printf("     %-29s  |  %9.3f \n", "Naive", min_time_naive_ms);
+    printf("     %-29s  |  %9.3f \n", "Separable", min_time_separable_ms);
+    printf("     %-29s  |  %9.3f \n", "Separable (AVX2)", min_time_separable_avx2_ms);
+    printf("     %-29s  |  %9.3f \n", "Separable (AVX2, fixed-point)", min_time_separable_avx2_fixed_point_ms);
+    printf("     %-29s  |  %9.3f \n", "Final (Multithreaded)", min_time_final_mt_ms);
     printf("\n\n");
 
     cipr_thread_pool_shutdown();
