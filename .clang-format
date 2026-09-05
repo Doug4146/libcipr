@@ -1,0 +1,12 @@
+---
+BasedOnStyle: LLVM
+AlignConsecutiveAssignments:
+  Enabled: true
+AlignConsecutiveMacros:
+  Enabled: true
+AlignEscapedNewlines: LeftWithLastLine
+AllowShortFunctionsOnASingleLine: None
+BreakBeforeBraces: Linux
+ColumnLimit: 80
+IndentWidth: 4
+InsertNewlineAtEOF: true
